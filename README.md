@@ -17,7 +17,9 @@ Since Google Maps now requires billing to be enabled in order to use the API, I 
 
 Please note that this assumes you have Python installed. It works with Python 2.7 and Python 3.5+.
 You can install Python from [here](https://www.python.org/downloads/). 
-You also need to install 
+Install automatically using pip: `pip install -r packages.txt`
+
+Otherwise to install manually:
 * beautifulsoup4 from [here](https://www.crummy.com/software/BeautifulSoup/bs4/doc/) and you'll probably need `pip` to do that (`python -m pip install beautifulsoup4` on Windows should do it).
 * requests either through pip ('python -m pip install requests') or directions for your setup found [here](http://docs.python-guide.org/en/latest/starting/installation/)
 

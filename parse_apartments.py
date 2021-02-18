@@ -15,7 +15,7 @@ try:
 except ImportError:
     import ConfigParser as configparser
 
-def create_csv(search_urls, map_info, fname, pscores):
+def create_csv(search_urls, max_pages, ignore_duplicates, map_info, fname, pscores):
     """Create a CSV file with information that can be imported into ideal-engine"""
 
     # avoid the issue on Windows where there's an extra space every other line
@@ -53,19 +53,22 @@ def create_csv(search_urls, map_info, fname, pscores):
 
         # parse current entire apartment list including pagination for all search urls
         for url in search_urls:
+            url = url.strip()
+            if not url.endswith('/'):
+                url = url + '/'
             print ("Now getting apartments from: %s" % url)
-            write_parsed_to_csv(url, map_info, writer, pscores)
+            write_parsed_to_csv(url, 1, max_pages, map_info, writer, pscores)
 
     finally:
         csv_file.close()
 
 
-def write_parsed_to_csv(page_url, map_info, writer, pscores):
+def write_parsed_to_csv(page_url, page_num, max_pages, map_info, writer, pscores):
     """Given the current page URL, extract the information from each apartment in the list"""
 
     # read the current page
     headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36'}
-    page = requests.get(page_url, headers=headers)
+    page = requests.get(page_url + str(page_num) + '/', headers=headers)
  
     # soupify the current page
     soup = BeautifulSoup(page.content, 'html.parser')
@@ -79,20 +82,25 @@ def write_parsed_to_csv(page_url, map_info, writer, pscores):
         rent = ''
         contact = ''
 
-        if item.find('a', class_='placardTitle') is None: continue
-        url = item.find('a', class_='placardTitle').get('href')
+        url = item.get('data-url')
+        if url is None: continue
 
         # get the rent and parse it to unicode
-        obj = item.find('span', class_='altRentDisplay')
+        obj = item.find('div', class_='price-range')
         if obj is not None:
             rent = obj.getText().strip()
 
         # get the phone number and parse it to unicode
-        obj = item.find('div', class_='phone')
+        obj = item.find('a', class_='phone-link')
         if obj is not None:
             contact = obj.getText().strip()
 
         # get the other fields to write to the CSV
+        name = "N/A"
+        obj = item.find('span', class_='js-placardTitle')
+        if obj is not None:
+            name = obj.getText()
+        print ("Collecting data for: %s" % name)
         fields = parse_apartment_information(url, map_info)
 
         # make this wiki markup
@@ -118,20 +126,21 @@ def write_parsed_to_csv(page_url, map_info, writer, pscores):
         writer.writerow(row)
 
     # get the next page URL for pagination
-    next_url = soup.find('a', class_='next')
+#    next_url = soup.find('a', class_='next')
 
     # if there's only one page this will actually be none
-    if next_url is None:
-        return
+#    if next_url is None:
+#        return
 
     # get the actual next URL address
-    next_url = next_url.get('href')
+#    next_url = next_url.get('href')
 
-    if next_url is None or next_url == '' or next_url == 'javascript:void(0)':
-        return
+#    if next_url is None or next_url == '' or next_url == 'javascript:void(0)':
+#        return
 
     # recurse until the last page
-    write_parsed_to_csv(next_url, map_info, writer, pscores)
+    if page_num < max_pages:
+        write_parsed_to_csv(page_url, page_num + 1, max_pages, map_info, writer, pscores)
 
 
 def parse_apartment_information(url, map_info):
@@ -229,9 +238,9 @@ def prettify_text(data):
     # format it nicely: remove trailing spaces
     data = data.strip()
     # format it nicely: encode it, removing special symbols
-    data = data.encode('utf8', 'ignore')
+    #data = data.encode('utf8', 'ignore')
 
-    return str(data).encode('utf-8')
+    return data #str(data).encode('utf-8')
 
 
 def get_images(soup, fields):
@@ -242,9 +251,11 @@ def get_images(soup, fields):
     if soup is None: return
 
     # find ul with id fullCarouselCollection
-    soup = soup.find('ul', {'id': 'fullCarouselCollection'})
-    if soup is not None:
-        for img in soup.find_all('img'):
+    obj = soup.find('section', class_='carouselSection')
+    if obj is not None:
+        for img in obj.find_all('img'):
+            #if 'alt' in img:
+            #    if 'src' in img:
             fields['img'] += '![' + img['alt'] + '](' + img['src'] + ') '
 
 def get_description(soup, fields):
@@ -255,10 +266,11 @@ def get_description(soup, fields):
     if soup is None: return
 
     # find p with itemprop description
-    obj = soup.find('p', {'itemprop': 'description'})
-
+    obj = soup.find('section', class_='descriptionSection')
     if obj is not None:
-        fields['description'] = prettify_text(obj.getText())
+        obj = obj.find('p')
+        if obj is not None:
+            fields['description'] = prettify_text(obj.getText())
 
 def get_property_size(soup, fields):
     """Given a beautifulSoup parsed page, extract the property size of the first one bedroom"""
@@ -268,11 +280,13 @@ def get_property_size(soup, fields):
 
     if soup is None: return
     
-    obj = soup.find('tr', {'data-beds': '1'})
+    obj = soup.find('div', class_='detailsLabel')
     if obj is not None:
-        data = obj.find('td', class_='sqft').getText()
-        data = prettify_text(data)
-        fields['size'] = data
+        obj = obj.find('span', string=lambda text: 'sq ft' in text)
+        if obj is not None:
+            data = obj.getText()
+            data = prettify_text(data)
+            fields['size'] = data
 
 
 def get_features_and_info(soup, fields):
@@ -320,6 +334,7 @@ def get_parking_info(soup, fields):
 
     if soup is None: return
     
+    #should be find_all
     obj = soup.find('div', class_='parkingDetails')
     if obj is not None:
         data = obj.getText()
@@ -331,11 +346,13 @@ def get_parking_info(soup, fields):
 
 def get_pet_policy(soup, fields):
     """Given a beautifulSoup parsed page, extract the pet policy details"""
+
     if soup is None:
         fields['petPolicy'] = ''
         return
     
     # the pet policy
+    #should be find_all
     data = soup.find('div', class_='petPolicyDetails')
     if data is None:
         data = ''
@@ -357,12 +374,13 @@ def get_fees(soup, fields):
 
     obj = soup.find('div', class_='monthlyFees')
     if obj is not None:
-        for expense in obj.find_all('div', class_='fee'):
-            description = expense.find(
-                'div', class_='descriptionWrapper').getText()
+        for expense in obj.find_all('div', class_='descriptionWrapper'):
+            spans = expense.find_all('span')
+
+            description = spans[0].getText()
             description = prettify_text(description)
 
-            price = expense.find('div', class_='priceWrapper').getText()
+            price = spans[1].getText()
             price = prettify_text(price)
 
             fields['monthFees'] += '* ' + description + ': ' + price + '\n'
@@ -370,12 +388,13 @@ def get_fees(soup, fields):
     # get one time fees
     obj = soup.find('div', class_='oneTimeFees')
     if obj is not None:
-        for expense in obj.find_all('div', class_='fee'):
-            description = expense.find(
-                'div', class_='descriptionWrapper').getText()
+        for expense in obj.find_all('div', class_='descriptionWrapper'):
+            spans = expense.find_all('span')
+
+            description = spans[0].getText()
             description = prettify_text(description)
 
-            price = expense.find('div', class_='priceWrapper').getText()
+            price = spans[1].getText()
             price = prettify_text(price)
 
             fields['onceFees'] += '* ' + description + ': ' + price + '\n'
@@ -472,20 +491,17 @@ def get_property_address(soup, fields):
 
     address = ""
 
-    # They changed how this works so I need to grab the script
-    script = soup.findAll('script', type='text/javascript')[2].text
-    
-    # The address is everything in quotes after listingAddress
-    address = find_addr(script, "listingAddress")
-
-    # City
-    address += ", " + find_addr(script, "listingCity")
-
-    # State
-    address += ", " + find_addr(script, "listingState")
-
-    # Zip Code
-    address += " " + find_addr(script, "listingZip")
+    obj = soup.find('div', class_='propertyAddress')
+    if obj is not None:
+        obj = obj.find('h2')
+        if obj is not None:
+            obj = obj.find_all('span')
+            if obj is not None:
+                street = obj[0].getText()
+                city = obj[1].getText()
+                state = obj[2].getText()
+                zipCode = obj[3].getText()
+                address = street + ", " + city + ", " + state + " " + zipCode
 
     fields['address'] = address
 
@@ -510,6 +526,7 @@ def parse_config_times(given_time):
 
 def main():
     """Read from the config file and get the Google maps info optionally"""
+    trueValues = ['T', 't', '1', 'True', 'true']
 
     conf = configparser.ConfigParser()
     config_file = os.path.join(os.path.dirname(__file__), "config.ini")
@@ -519,11 +536,20 @@ def main():
     apartments_url_config = conf.get('all', 'apartmentsURL')
     urls = apartments_url_config.replace(" ", "").split(",")
 
+    max_pages_config = conf.get('all', 'maxPageScrape')
+    max_pages = 1
+    try:
+        max_pages = int(max_pages_config)
+    except ValueError:
+        max_pages = 1
+
+    ignore_duplicates = conf.get('all', 'ignoreDuplicates') in trueValues
+
     # get the name of the output file
     fname = conf.get('all', 'fname') + '.csv'
 
     # should this also print the scores
-    pscores = (conf.get('all', 'printScores') in ['T', 't', '1', 'True', 'true'])
+    pscores = (conf.get('all', 'printScores') in trueValues)
 
     # create a dict to pass in all of the Google Maps info to have fewer params
     map_info = {}
@@ -535,7 +561,7 @@ def main():
 
     # should use Google Maps? 
     # maybe not since you have to provide credit card info, the URL will still work
-    map_info['use_google_maps'] = conf.get('all', 'useGoogleMaps') in ['T', 't', '1', 'True', 'true']
+    map_info['use_google_maps'] = conf.get('all', 'useGoogleMaps') in trueValues
 
     if map_info['use_google_maps']:
         # get the URL to Google Maps
@@ -552,7 +578,7 @@ def main():
         map_info['maps_url'] += 'units=' + units + '&mode=' + mode + \
             '&transit_routing_preference=' + routing + '&key=' + google_api_key
 
-    create_csv(urls, map_info, fname, pscores)
+    create_csv(urls, max_pages, ignore_duplicates, map_info, fname, pscores)
 
 
 if __name__ == '__main__':
