@@ -105,6 +105,13 @@ def main():
     # get the name of the output file
     fname = conf.get('all', 'fname')
 
+    #Attempt to remove old output file to make sure we have write permissions
+    try:
+        os.remove(fname + ".xlsx")
+    except PermissionError:
+        print("The output file is being used by another process. Try closing the file then run the program again: \'" + fname + ".xlsx\'")
+        return
+
     #Create the output file and start the scraping
     out = OutputFile(fname)
     try:
