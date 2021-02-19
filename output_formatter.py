@@ -101,7 +101,10 @@ class OutputFile(object):
         'utilities[Water]': ["Water Incl.", 8.0, {'separateUtilities': True}],
         'utilities[Other]': ["Other Util. Incl.", 8.0, {'separateUtilities': True}],
         'parking': ["Parking", 10.0],
-        'pets': ["Pets", 7.0],
+        'pets': ["Pets", 7.0, {'separatePets': False}],
+        'pets[Cats]': ["Cats", 7.0, {'separatePets': True}],
+        'pets[Dogs]': ["Dogs", 7.0, {'separatePets': True}],
+        'pets[Other]': ["Other Pets", 7.0, {'separatePets': True}],
         'monthly': ["Monthly Fees", 15.0],
         'fees': ["One-Time Fees", 15.0],
         'recreation': ["Recreation", 11.0],
@@ -184,24 +187,9 @@ class OutputFile(object):
         self.writeCell('value', "=" + excel_style(self.currentRow, self.columns['price']) + "/" + excel_style(self.currentRow, self.columns['size']), self.num_format)
         self.writeCell('bed', float(row.getValueCell('bed')), None)
         self.writeCell('bath', float(row.getValueCell('bath')), None)
-
-        #Write utilities based on the config
-        if self.config['separateUtilities']:
-            if 'utilities' in self.values:
-                listValues = self.values['utilities']
-                values = []
-                if 'utilities' in row.Values:
-                    values = row.Values['utilities']
-                for listValue in listValues:
-                    value = "False"
-                    if listValue in values:
-                        value = "True"
-                    self.writeCell('utilities[' + listValue + ']', value, None)
-        else:
-            self.writeCell('utilities', row.getListCell('utilities'), None)
-
+        self.writeSeparatedCells(row, 'utilities', 'separateUtilities', None)
         self.writeCell('parking', row.getListCell('parking'), None)
-        self.writeCell('pets', row.getListCell('pets'), None)
+        self.writeSeparatedCells(row, 'pets', 'separatePets', None)
         self.writeCell('monthly', row.getListCell('monthly'), None)
         self.writeCell('fees', row.getListCell('fees'), None)
         self.writeCell('recreation', row.getListCell('recreation'), None)
@@ -213,6 +201,21 @@ class OutputFile(object):
         self.writeCell('duration', row.getValueCell('duration'), None)
 
         self.currentRow += 1
+
+    def writeSeparatedCells(self, row, key, configKey, format):
+        if self.config[configKey]:
+            if key in self.values:
+                listValues = self.values[key]
+                values = []
+                if key in row.Values:
+                    values = row.Values[key]
+                for listValue in listValues:
+                    value = "No"
+                    if listValue in values:
+                        value = "Yes"
+                    self.writeCell(key + '[' + listValue + ']', value, format)
+        else:
+            self.writeCell(key, row.getListCell(key), format)
 
     def close(self):
         self.wb.close()

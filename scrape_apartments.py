@@ -6,6 +6,7 @@ import sys
 import datetime
 import requests
 import os
+import traceback
 from bs4 import BeautifulSoup
 import parse_apartments as parsing
 from output_formatter import OutputFile
@@ -107,6 +108,7 @@ def main():
     #get other configs
     config = {}
     config['separateUtilities'] = (conf.get('all', 'separateUtilities') in trueValues)
+    config['separatePets'] = (conf.get('all', 'separatePets') in trueValues)
 
     # get the name of the output file
     fname = conf.get('all', 'fname')
@@ -128,6 +130,7 @@ def main():
     except Exception as e:
         print("An error has occured!")
         print(e)
+        traceback.print_exc()
     finally:
         out.close()
     print("Finished")
