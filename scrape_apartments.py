@@ -10,6 +10,7 @@ import traceback
 from bs4 import BeautifulSoup
 import parse_apartments as parsing
 from output_formatter import OutputFile
+import logging
 
 # Config parser was renamed in Python 3
 try:
@@ -39,7 +40,7 @@ def scrapeSearchPage(out, page_url, page_num, max_pages, ignore_duplicates, apar
             url += "/"
         url += str(page_num) + "/"
 
-    print ("Now getting apartments from page " + str(page_num) + ": %s" % url)
+    logging.info("Now getting apartments from page " + str(page_num) + ": %s" % url)
 
     # read the current page
     headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36'}
@@ -69,7 +70,7 @@ def scrapeSearchPage(out, page_url, page_num, max_pages, ignore_duplicates, apar
         obj = item.find('span', class_='js-placardTitle')
         if obj is not None:
             name = obj.getText().strip()
-        print ("Collecting data for: %s" % name)
+        logging.info("Collecting data for: %s" % name)
 
         #request the page and parse the data
         apartmentPage = requests.get(data_url, headers=headers)
@@ -142,7 +143,7 @@ def main():
     try:
         os.remove(fname + ".xlsx")
     except PermissionError:
-        print("The output file is being used by another process. Try closing the file then run the program again: \'" + fname + ".xlsx\'")
+        logging.error("The output file is being used by another process. Try closing the file then run the program again: \'" + fname + ".xlsx\'")
         return
     except FileNotFoundError:
         #We don't actually care about this error, we can ignore it.
@@ -152,14 +153,16 @@ def main():
     out = OutputFile(fname, config)
     try:
         scrapeApartments(out, urls, max_pages, ignore_duplicates, config)
-    except Exception as e:
-        print("An error has occured!")
-        print(e)
-        traceback.print_exc()
+    except Exception:
+        logging.exception("An error has occured!")
     finally:
         out.close()
-    print("Finished")
+    logging.info("Finished")
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO, handlers=[
+        logging.FileHandler(filename='logging.log'),
+        logging.StreamHandler(sys.stdout)
+    ])
     main()

@@ -4,3 +4,7 @@ config.ini
 .DS_Store
 .vscode
 /.vs
+*.log
+__pycache__/
+*.py[cod]
+*$py.class
