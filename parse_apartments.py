@@ -84,9 +84,8 @@ def scrapeAddress(soup):
         if obj is not None:
             obj = obj.find_all('span')
             if obj is not None:
-                address.append(simplify(obj[0].getText())) # street
-                address.append(simplify(obj[1].getText())) # city
-                address.append(simplify(obj[2].getText()) + " " + simplify(obj[3].getText())) # state / zip
+                for addr in obj:
+                    address.append(simplify(addr.getText()))
 
     return ", ".join(address)
 
