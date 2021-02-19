@@ -81,10 +81,18 @@ def scrapeSearchPage(out, page_url, page_num, max_pages, ignore_duplicates, apar
     if page_num < max_pages:
         scrapeSearchPage(out, page_url, page_num + 1, max_pages, ignore_duplicates, apartmentList, config)
 
+def loadConfigFromValuesNoCase(conf, key, values):
+    """NOTE: The values must all be lowercase (e.x. \"highest\")"""
+    value = conf.get('all', key).lower()
+    if value in values:
+        return value
+    else:
+        raise Exception("ERROR: Configuration \'" + key + "\' was an invalid value, unable to run!")
 
 def main():
     """Read from the config file"""
     trueValues = ['T', 't', '1', 'True', 'true']
+    priceSelectorValues = ['lowest', 'highest', 'average']
 
     conf = configparser.ConfigParser()
     config_file = os.path.join(os.path.dirname(__file__), "config.ini")
@@ -110,6 +118,7 @@ def main():
     config['separateUtilities'] = (conf.get('all', 'separateUtilities') in trueValues)
     config['separatePets'] = (conf.get('all', 'separatePets') in trueValues)
     config['separateParking'] = (conf.get('all', 'separateParking') in trueValues)
+    config['priceSelector'] = loadConfigFromValuesNoCase(conf, 'priceSelector', priceSelectorValues)
 
     # get the name of the output file
     fname = conf.get('all', 'fname')

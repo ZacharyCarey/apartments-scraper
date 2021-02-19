@@ -37,7 +37,7 @@ def parseApartmentPage(soup, out, url, config):
 
         floorplanName = scrapeFloorplanName(floorplan) #Separate for easier debugging
         row.setFloorplanName(floorplanName)
-        row.setValue('price', scrapePrice(floorplan))
+        row.setValue('price', scrapePrice(floorplan, config))
         row.setValue('size', scrapeSize(floorplan))
         row.setValue('bed', scrapeBed(floorplan))
         row.setValue('bath', scrapeBath(floorplan))
@@ -241,7 +241,7 @@ def scrapeFloorplanName(floorplan):
             return simplify(obj.getText())
     return ''
 
-def scrapePrice(floorplan):
+def scrapePrice(floorplan, config):
     if floorplan is not None:
         obj = floorplan.find('td', class_='rent')
         if obj is not None:
@@ -253,7 +253,14 @@ def scrapePrice(floorplan):
             if split > -1:
                 rent1 = int(text[:split].strip())
                 rent2 = int(text[split + 1:].strip())
-                rent = (rent1 + rent2) // 2
+                if config['priceSelector'] == 'lowest':
+                    rent = min(rent1, rent2)
+                elif config['priceSelector'] == 'highest':
+                    rent = max(rent1, rent2)
+                elif config['priceSelector'] == 'average':
+                    rent = (rent1 + rent2) // 2
+                else:
+                    raise Exception("ERROR: Invalid priceSelector value.")
             else:
                 try:
                     rent = int(text.strip())
