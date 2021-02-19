@@ -21,6 +21,7 @@ def parseApartmentPage(soup, out, url):
     floorplans = scrapeFloorplanSoups(soup)
     for floorplan in floorplans:
         row = out.getNewRow()
+
         row.setApartmentName(name)
         row.setApartmentURL(url)
         row.setValue('neighborhood', neighborhood)
@@ -34,17 +35,20 @@ def parseApartmentPage(soup, out, url):
         addListToRow('features', features, row)
         addListToRow('outdoors', outdoors, row)
 
-        row.setFloorplanName(scrapeFloorplanName(floorplan))
+        floorplanName = scrapeFloorplanName(floorplan) #Separate for easier debugging
+        row.setFloorplanName(floorplanName)
         row.setValue('price', scrapePrice(floorplan))
         row.setValue('size', scrapeSize(floorplan))
         row.setValue('bed', scrapeBed(floorplan))
         row.setValue('bath', scrapeBath(floorplan))
 
+        out.writeRow(row) #Actually save the data to the file
+
 
 def simplify(text):
     """Given text scraped from a website, simplify the text by removing unnecessary whitespace and bullets."""
     # format it nicely: encode it, removing special symbols
-    data = text.encode('ascii', 'ignore')
+    data = text.encode('ascii', 'ignore').decode("utf-8")
     # format it nicely: replace multiple spaces with just one
     data = re.sub(' +', ' ', data)
     # format it nicely: replace multiple new lines with just one
@@ -100,9 +104,12 @@ def scrapeUtilities(soup):
         if obj is not None:
             obj = obj.find_all('span')
             if obj is not None:
-                for span in simplify(obj.getText()):
-                    if "Included" not in span:
-                        for util in span.split(", "):
+                for span in obj:
+                    if span is None:
+                        continue
+                    text = simplify(span.getText())
+                    if "Included" not in text:
+                        for util in text.split(", "):
                             if "Trash" in util:
                                 utilities.append("Trash")
                             elif ("Electric" in util) or ("Electricity" in util):
@@ -246,9 +253,12 @@ def scrapePrice(floorplan):
             if split > -1:
                 rent1 = int(text[:split].strip())
                 rent2 = int(text[split + 1:].strip())
-                rent = (rent1 + rent2) / 2
+                rent = (rent1 + rent2) // 2
             else:
-                rent = int(text.strip())
+                try:
+                    rent = int(text.strip())
+                except ValueError:
+                    rent = 0
             return str(rent)
     return '0'
 
@@ -256,7 +266,20 @@ def scrapeSize(floorplan):
     if floorplan is not None:
         obj = floorplan.find('td', class_='sqft')
         if obj is not None:
-            return simplify(obj.getText()).strip("Sq Ft").strip().replace(",", "")
+            text = simplify(obj.getText())
+            text = text.replace(",", "").strip("Sq Ft").strip()
+            split = text.find('-')
+            size = 0
+            if split > -1:
+                size1 = int(text[:split].strip())
+                size2 = int(text[split + 1:].strip())
+                size = (size1 + size2) // 2
+            else:
+                try:
+                    size = int(text.strip())
+                except ValueError:
+                    size = 0
+            return str(size)
     return '0'
 
 def scrapeBed(floorplan):
@@ -267,8 +290,16 @@ def scrapeBed(floorplan):
             if obj is not None:
                 text = simplify(obj.getText().replace("\u0189", ".5")) #Replace the 1/2 fraction character
                 data = text.split()
+                beds = text
                 if len(data) >= 1:
-                    return data[0]
+                    beds = data[0]
+                if 'studio' in beds.lower():
+                    beds = '1'
+                try:
+                    float(beds)
+                    return beds
+                except ValueError:
+                    return '0'
     return '0'
 
 def scrapeBath(floorplan):
@@ -277,8 +308,18 @@ def scrapeBath(floorplan):
         if obj is not None:
             obj = obj.find('span')
             if obj is not None:
-                text = simplify(obj.getText().replace("\u0189", ".5")) #Replace the 1/2 fraction character
+                text = obj.getText()
+                text = text.replace(chr(189), ".5") #Replace the 1/2 fraction character
+                text = simplify(text)
                 data = text.split()
+                baths = text
                 if len(data) >= 1:
-                    return data[0]
+                    baths = data[0]
+                if 'studio' in baths.lower():
+                    baths = '1'
+                try:
+                    float(baths)
+                    return baths
+                except ValueError:
+                    return '0'
     return '0'

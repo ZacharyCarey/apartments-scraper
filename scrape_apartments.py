@@ -24,12 +24,13 @@ def scrapeApartments(out, search_urls, max_pages, ignore_duplicates):
         url = url.strip()
         if not url.endswith('/'):
             url = url + '/'
-        print ("Now getting apartments from: %s" % url)
         scrapeSearchPage(out, url, 1, max_pages, ignore_duplicates, apartments)
 
 
 def scrapeSearchPage(out, page_url, page_num, max_pages, ignore_duplicates, apartmentList):
     """Given the current page URL, extract the information from each apartment in the list"""
+
+    print ("Now getting apartments from page " + str(page_num) + ": %s" % page_url)
 
     # read the current page
     headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36'}
@@ -99,12 +100,12 @@ def main():
 
     #Create the output file and start the scraping
     out = OutputFile(fname)
-    try:
-        scrapeApartments(out, urls, max_pages, ignore_duplicates)
-    except:
-        print("An error has occured!")
-    finally:
-        out.close()
+    #try:
+    scrapeApartments(out, urls, max_pages, ignore_duplicates)
+    #except:
+    #    print("An error has occured!")
+    #finally:
+    out.close()
 
 
 if __name__ == '__main__':

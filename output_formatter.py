@@ -105,7 +105,7 @@ class OutputFile(object):
     }
 
     values = {
-        'utilities': ["Air Conditioning", "Electric", "Heat", "Sewage", "Trash", "Water"],
+        'utilities': ["Air Conditioning", "Electric", "Gas", "Heat", "Sewage", "Trash", "Water"],
         'parking': ["Covered", "Garage", "Lot"],
         'pets': ["Cats", "Dogs"],
         'monthly': ["Storage Fee", "Cat Rent", "Dog Rent", "Parking"],
@@ -177,6 +177,8 @@ class OutputFile(object):
         self.writeCell('address', row.getValueCell('address'), None)
         self.writeCell('distance', row.getValueCell('distance'), None)
         self.writeCell('duration', row.getValueCell('duration'), None)
+
+        self.currentRow += 1
 
     def close(self):
         self.wb.close()
