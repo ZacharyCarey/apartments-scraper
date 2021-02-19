@@ -16,7 +16,7 @@ try:
 except ImportError:
     import ConfigParser as configparser
 
-def scrapeApartments(out, search_urls, max_pages, ignore_duplicates):
+def scrapeApartments(out, search_urls, max_pages, ignore_duplicates, config):
     """goes through each apartment search page URL and scrapes the data"""
     # parse current entire apartment list including pagination for all search urls
     apartments = [] #List of visited apartment URLs to avoid duplicate entries
@@ -24,10 +24,10 @@ def scrapeApartments(out, search_urls, max_pages, ignore_duplicates):
         url = url.strip()
         if not url.endswith('/'):
             url = url + '/'
-        scrapeSearchPage(out, url, 1, max_pages, ignore_duplicates, apartments)
+        scrapeSearchPage(out, url, 1, max_pages, ignore_duplicates, apartments, config)
 
 
-def scrapeSearchPage(out, page_url, page_num, max_pages, ignore_duplicates, apartmentList):
+def scrapeSearchPage(out, page_url, page_num, max_pages, ignore_duplicates, apartmentList, config):
     """Given the current page URL, extract the information from each apartment in the list"""
     url = page_url
     metadata = url.find('?')
@@ -74,11 +74,11 @@ def scrapeSearchPage(out, page_url, page_num, max_pages, ignore_duplicates, apar
         apartmentPage = requests.get(data_url, headers=headers)
         apartmentSoup = BeautifulSoup(apartmentPage.content, 'html.parser')
         apartmentSoup.prettify()
-        parsing.parseApartmentPage(apartmentSoup, out, data_url)
+        parsing.parseApartmentPage(apartmentSoup, out, data_url, config)
 
     # recurse until the last page
     if page_num < max_pages:
-        scrapeSearchPage(out, page_url, page_num + 1, max_pages, ignore_duplicates, apartmentList)
+        scrapeSearchPage(out, page_url, page_num + 1, max_pages, ignore_duplicates, apartmentList, config)
 
 
 def main():
@@ -93,6 +93,7 @@ def main():
     apartments_url_config = conf.get('all', 'apartmentsURL')
     urls = apartments_url_config.replace(" ", "").split(",")
 
+    #get max page numbers
     max_pages_config = conf.get('all', 'maxPageScrape')
     max_pages = 1
     try:
@@ -100,7 +101,12 @@ def main():
     except ValueError:
         max_pages = 1
 
+    #get ignore duplicates config
     ignore_duplicates = conf.get('all', 'ignoreDuplicates') in trueValues
+
+    #get other configs
+    config = {}
+    config['separateUtilities'] = (conf.get('all', 'separateUtilities') in trueValues)
 
     # get the name of the output file
     fname = conf.get('all', 'fname')
@@ -111,11 +117,14 @@ def main():
     except PermissionError:
         print("The output file is being used by another process. Try closing the file then run the program again: \'" + fname + ".xlsx\'")
         return
+    except FileNotFoundError:
+        #We don't actually care about this error, we can ignore it.
+        pass
 
     #Create the output file and start the scraping
-    out = OutputFile(fname)
+    out = OutputFile(fname, config)
     try:
-        scrapeApartments(out, urls, max_pages, ignore_duplicates)
+        scrapeApartments(out, urls, max_pages, ignore_duplicates, config)
     except Exception as e:
         print("An error has occured!")
         print(e)

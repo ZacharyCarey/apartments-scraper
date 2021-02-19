@@ -11,12 +11,13 @@ def excel_style(row, col):
     return ''.join(result) + str(row + 1)
 
 class OutputRow(object):
-    def __init__(self, listValues):
+    def __init__(self, listValues, config):
         self.Values = {}
         self.listValues = listValues
         self.ApartmentName = None
         self.URL = None
         self.Floorplan = None
+        self.config = config
         
     def setApartmentName(self, name):
         """ The name of the apartment complex. """
@@ -43,7 +44,7 @@ class OutputRow(object):
             return text
         else:
             return "=HYPERLINK(\"" + self.URL + "\", \"" + text + "\")"
-    
+
     def setValue(self, key, value):
         self.Values[key] = value
 
@@ -90,7 +91,14 @@ class OutputFile(object):
         'value': ["Price/sqft", 10.0],
         'bed': ["Bed", 5.0],
         'bath': ["Bath", 5.0],
-        'utilities': ["Included Utilities", 18.0],
+        'utilities': ["Included Utilities", 18.0, {'separateUtilities': False}],
+        'utilities[Air Conditioning]': ["A/C Incl.", 8.0, {'separateUtilities': True}],
+        'utilities[Electric]': ["Electric Incl.", 8.0, {'separateUtilities': True}],
+        'utilities[Gas]': ["Gas Incl.", 8.0, {'separateUtilities': True}],
+        'utilities[Heat]': ["Heat Incl.", 8.0, {'separateUtilities': True}],
+        'utilities[Sewage]': ["Sewage Incl.", 8.0, {'separateUtilities': True}],
+        'utilities[Trash]': ["Trash Incl.", 8.0, {'separateUtilities': True}],
+        'utilities[Water]': ["Water Incl.", 8.0, {'separateUtilities': True}],
         'parking': ["Parking", 10.0],
         'pets': ["Pets", 7.0],
         'monthly': ["Monthly Fees", 15.0],
@@ -100,8 +108,8 @@ class OutputFile(object):
         'outdoors': ["Outdoors", 9.0],
         'lease': ["Lease Length (mo)", 17.0],
         'address': ["Address", 23.0],
-        'distance': ["Distance (mi)"],
-        'duration': ["Duration (min)"]
+        'distance': ["Distance (mi)", None],
+        'duration': ["Duration (min)", None]
     }
 
     values = {
@@ -115,7 +123,8 @@ class OutputFile(object):
         'outdoors': ["Gated", "Grill", "Balcony", "Patio", "Sundeck", "Courtyard", "Picnic Area"]
     }
 
-    def __init__(self, output_name):
+    def __init__(self, output_name, config):
+        self.config = config
         self.wb = xlsxwriter.Workbook(output_name + '.xlsx')
         self.ws = self.wb.add_worksheet()
         self.columns = {}
@@ -136,7 +145,16 @@ class OutputFile(object):
         #Write the header cells, set cell width, and store col numbers for later use
         col = 0
         for category, header in self.headers.items():
-            if len(header) > 1:
+            if (len(header) > 2) and (header[2] is not None):
+                #Check config requirements
+                displayHeader = True
+                for requirement, value in header[2].items():
+                    if (requirement not in config) or (value != config[requirement]):
+                        displayHeader = False
+                        break
+                if not displayHeader:
+                    continue #Does not meet display requirements
+            if (len(header) > 1) and (header[1] is not None):
                 self.ws.set_column(col, col, header[1])
             self.columns[category] = col
             self.ws.write(0, col, header[0], cell_format)
@@ -145,7 +163,7 @@ class OutputFile(object):
         self.currentRow = 1
 
     def getNewRow(self):
-        return OutputRow(self.values)
+        return OutputRow(self.values, self.config)
 
     def writeCell(self, key, value, format):
         if format is None:
@@ -165,7 +183,22 @@ class OutputFile(object):
         self.writeCell('value', "=" + excel_style(self.currentRow, self.columns['price']) + "/" + excel_style(self.currentRow, self.columns['size']), self.num_format)
         self.writeCell('bed', float(row.getValueCell('bed')), None)
         self.writeCell('bath', float(row.getValueCell('bath')), None)
-        self.writeCell('utilities', row.getListCell('utilities'), None)
+
+        #Write utilities based on the config
+        if self.config['separateUtilities']:
+            if 'utilities' in self.values:
+                listValues = self.values['utilities']
+                values = []
+                if 'utilities' in row.Values:
+                    values = row.Values['utilities']
+                for listValue in listValues:
+                    value = "False"
+                    if listValue in values:
+                        value = "True"
+                    self.writeCell('utilities[' + listValue + ']', value, None)
+        else:
+            self.writeCell('utilities', row.getListCell('utilities'), None)
+
         self.writeCell('parking', row.getListCell('parking'), None)
         self.writeCell('pets', row.getListCell('pets'), None)
         self.writeCell('monthly', row.getListCell('monthly'), None)

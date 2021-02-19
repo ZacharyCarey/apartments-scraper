@@ -4,7 +4,7 @@ def addListToRow(key, arr, row):
     for item in arr:
         row.addListValue(key, item)
 
-def parseApartmentPage(soup, out, url):
+def parseApartmentPage(soup, out, url, config):
     """Parses the apartment page for information and stores it in the given OutputFile for formatting."""
     name = scrapeApartmentName(soup)
     address = scrapeAddress(soup)
