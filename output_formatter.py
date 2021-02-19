@@ -56,7 +56,8 @@ class OutputRow(object):
         if key not in self.Values:
             self.Values[key] = []
         val = self.Values[key]
-        val.append(value)
+        if value not in val:
+            val.append(value)
 
     def getListCell(self, key):
         if key not in self.listValues:
@@ -162,8 +163,8 @@ class OutputFile(object):
         self.writeCell('price', float(row.getValueCell('price')), self.num_format)
         self.writeCell('size', int(row.getValueCell('size')), None)
         self.writeCell('value', "=" + excel_style(self.currentRow, self.columns['price']) + "/" + excel_style(self.currentRow, self.columns['size']), self.num_format)
-        self.writeCell('bed', int(row.getValueCell('bed')), None)
-        self.writeCell('bath', int(row.getValueCell('bath')), None)
+        self.writeCell('bed', float(row.getValueCell('bed')), None)
+        self.writeCell('bath', float(row.getValueCell('bath')), None)
         self.writeCell('utilities', row.getListCell('utilities'), None)
         self.writeCell('parking', row.getListCell('parking'), None)
         self.writeCell('pets', row.getListCell('pets'), None)
