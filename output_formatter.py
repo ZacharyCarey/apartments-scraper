@@ -89,6 +89,9 @@ class OutputFile(object):
         'price': ["Price", 11.0],
         'size': ["Size (sqft)", 10.0],
         'value': ["Price/sqft", 10.0],
+        'discount': ["Discount", 11.0, {'priceAdjustment': True}],
+        'adjusted_price': ["Adj. Price", 11.0, {'priceAdjustment': True}],
+        'adjusted_value': ["Adj. Price/sqft", 13.5, {'priceAdjustment': True}],
         'bed': ["Bed", 5.0],
         'bath': ["Bath", 5.0],
         'utilities': ["Included Utilities", 18.0, {'separateUtilities': False}],
@@ -134,7 +137,7 @@ class OutputFile(object):
     def __init__(self, output_name, config):
         self.config = config
         self.wb = xlsxwriter.Workbook(output_name + '.xlsx')
-        self.ws = self.wb.add_worksheet()
+        self.ws = self.wb.add_worksheet("Apartments")
         self.columns = {}
 
         #Create the number format for later
@@ -167,11 +170,28 @@ class OutputFile(object):
             self.columns[category] = col
             self.ws.write(0, col, header[0], cell_format)
             col += 1
+
+        if config['priceAdjustment']:
+            self.createAdjustmentSheet(config, cell_format)
         
         self.currentRow = 1
 
+    def createAdjustmentSheet(self, config, header_format):
+        ws = self.wb.add_worksheet("Price Adjustments")
+        self.adjWS = ws
+        ws.write(0, 0, "Utility", header_format)
+        ws.write(0, 1, "Price", header_format)
+        row = 1
+        for util in self.values['utilities']:
+            ws.write(row, 0, util)
+            ws.write(row, 1, config['adjustPrice'][util], self.num_format)
+            row += 1
+
     def getNewRow(self):
         return OutputRow(self.values, self.config)
+
+    def excel_style(self, colKey):
+        return excel_style(self.currentRow, self.columns[colKey])
 
     def writeCell(self, key, value, format):
         if format is None:
@@ -188,7 +208,11 @@ class OutputFile(object):
         self.writeCell('neighborhood', row.getValueCell('neighborhood'), None)
         self.writeCell('price', float(row.getValueCell('price')), self.num_format)
         self.writeCell('size', int(row.getValueCell('size')), None)
-        self.writeCell('value', "=" + excel_style(self.currentRow, self.columns['price']) + "/" + excel_style(self.currentRow, self.columns['size']), self.num_format)
+        self.writeCell('value', "=" + self.excel_style('price') + "/" + self.excel_style('size'), self.num_format)
+        if self.config['priceAdjustment']:
+            self.writeCell('discount', self.calculateDiscount(row), self.num_format)
+            self.writeCell('adjusted_price', "=" + self.excel_style('price') + "+" + self.excel_style('discount'), self.num_format)
+            self.writeCell('adjusted_value', "=" + self.excel_style('adjusted_price') + "/" + self.excel_style('size'), self.num_format)
         self.writeCell('bed', float(row.getValueCell('bed')), None)
         self.writeCell('bath', float(row.getValueCell('bath')), None)
         self.writeSeparatedCells(row, 'utilities', 'separateUtilities', None)
@@ -220,6 +244,26 @@ class OutputFile(object):
                     self.writeCell(key + '[' + listValue + ']', value, format)
         else:
             self.writeCell(key, row.getListCell(key), format)
+
+    def calculateDiscount(self, row):
+        """This is a doozy of an excel formula"""
+        discounts = []
+        for i, util in enumerate(self.values['utilities']):
+            discount = "IF(ISNUMBER(FIND(\""
+            if self.config['separateUtilities']:
+                discount += "Yes"
+            else:
+                discount += util
+            discount += "\", "
+            if self.config['separateUtilities']:
+                discount += self.excel_style('utilities[' + util + ']')
+            else:
+                discount += self.excel_style('utilities')
+            discount += ")), \'Price Adjustments\'!B" + str(i + 2) + ", 0)"
+            discounts.append(discount)
+        if len(discounts) == 0:
+            return int(0)
+        return "=-(" + (" + ".join(discounts)) + ")"
 
     def close(self):
         self.wb.close()

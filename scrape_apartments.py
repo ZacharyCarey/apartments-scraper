@@ -119,6 +119,21 @@ def main():
     config['separatePets'] = (conf.get('all', 'separatePets') in trueValues)
     config['separateParking'] = (conf.get('all', 'separateParking') in trueValues)
     config['priceSelector'] = loadConfigFromValuesNoCase(conf, 'priceSelector', priceSelectorValues)
+    config['priceAdjustment'] = (conf.get('all', 'priceAdjustment') in trueValues)
+    config['adjustPrice'] = {
+        "Air Conditioning": int(conf.get('all', 'adjustACPrice')),
+        "Electric": int(conf.get('all', 'adjustElectricPrice')),
+        "Gas": int(conf.get('all', 'adjustGasPrice')),
+        "Heat": int(conf.get('all', 'adjustHeatPrice')),
+        "Sewage": int(conf.get('all', 'adjustSewagePrice')),
+        "Trash": int(conf.get('all', 'adjustTrashPrice')), 
+        "Water": int(conf.get('all', 'adjustWaterPrice')),
+        "Other": int(conf.get('all', 'adjustOtherPrice'))
+    }
+    #Make sure if there are utilities not listed that we add default values
+    for util in OutputFile.values['utilities']:
+        if util not in config['adjustPrice']:
+            config['adjustPrice'][util] = 0
 
     # get the name of the output file
     fname = conf.get('all', 'fname')
