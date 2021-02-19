@@ -100,7 +100,11 @@ class OutputFile(object):
         'utilities[Trash]': ["Trash Incl.", 8.0, {'separateUtilities': True}],
         'utilities[Water]': ["Water Incl.", 8.0, {'separateUtilities': True}],
         'utilities[Other]': ["Other Util. Incl.", 8.0, {'separateUtilities': True}],
-        'parking': ["Parking", 10.0],
+        'parking': ["Parking", 10.0, {'separateParking': False}],
+        'parking[Garage]': ["Garage", 10.0, {'separateParking': True}],
+        'parking[Covered]': ["Covered Parking", 10.0, {'separateParking': True}],
+        'parking[Lot]': ["Lot Parking", 10.0, {'separateParking': True}],
+        'parking[Other]': ["Other Parking", 10.0, {'separateParking': True}],
         'pets': ["Pets", 7.0, {'separatePets': False}],
         'pets[Cats]': ["Cats", 7.0, {'separatePets': True}],
         'pets[Dogs]': ["Dogs", 7.0, {'separatePets': True}],
@@ -188,7 +192,7 @@ class OutputFile(object):
         self.writeCell('bed', float(row.getValueCell('bed')), None)
         self.writeCell('bath', float(row.getValueCell('bath')), None)
         self.writeSeparatedCells(row, 'utilities', 'separateUtilities', None)
-        self.writeCell('parking', row.getListCell('parking'), None)
+        self.writeSeparatedCells(row, 'parking', 'separateParking', None)
         self.writeSeparatedCells(row, 'pets', 'separatePets', None)
         self.writeCell('monthly', row.getListCell('monthly'), None)
         self.writeCell('fees', row.getListCell('fees'), None)

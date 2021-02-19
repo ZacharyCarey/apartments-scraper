@@ -109,6 +109,7 @@ def main():
     config = {}
     config['separateUtilities'] = (conf.get('all', 'separateUtilities') in trueValues)
     config['separatePets'] = (conf.get('all', 'separatePets') in trueValues)
+    config['separateParking'] = (conf.get('all', 'separateParking') in trueValues)
 
     # get the name of the output file
     fname = conf.get('all', 'fname')
