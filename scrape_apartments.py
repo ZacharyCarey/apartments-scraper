@@ -59,17 +59,20 @@ def scrapeSearchPage(out, page_url, page_num, max_pages, ignore_duplicates, apar
         if data_url is None: 
             continue
 
-        if ignore_duplicates and (data_url in apartmentList):
-            continue
-
-        #Take note of the url so we don't accidently create a duplicate entry later
-        apartmentList.append(data_url)
-
         # get the name for user/debug info
         name = "N/A"
         obj = item.find('span', class_='js-placardTitle')
         if obj is not None:
             name = obj.getText().strip()
+
+        if ignore_duplicates and (data_url in apartmentList):
+            logging.info('Skipping duplicate: %s' % name)
+            continue
+
+        #Take note of the url so we don't accidently create a duplicate entry later
+        apartmentList.append(data_url)
+
+        #print some user/debug info
         logging.info("Collecting data for: %s" % name)
 
         #request the page and parse the data
