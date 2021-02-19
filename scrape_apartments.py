@@ -29,12 +29,20 @@ def scrapeApartments(out, search_urls, max_pages, ignore_duplicates):
 
 def scrapeSearchPage(out, page_url, page_num, max_pages, ignore_duplicates, apartmentList):
     """Given the current page URL, extract the information from each apartment in the list"""
+    url = page_url
+    metadata = url.find('?')
+    if metadata > -1:
+        url = url[:metadata] + str(page_num) + "/" + url[metadata:]
+    else:
+        if not url.endswith("/"):
+            url += "/"
+        url += str(page_num) + "/"
 
-    print ("Now getting apartments from page " + str(page_num) + ": %s" % page_url)
+    print ("Now getting apartments from page " + str(page_num) + ": %s" % url)
 
     # read the current page
     headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36'}
-    page = requests.get(page_url + str(page_num) + '/', headers=headers)
+    page = requests.get(url, headers=headers)
  
     # soupify the current page
     soup = BeautifulSoup(page.content, 'html.parser')
@@ -45,15 +53,15 @@ def scrapeSearchPage(out, page_url, page_num, max_pages, ignore_duplicates, apar
 
     # append the current apartments to the list
     for item in soup.find_all('article', class_='placard'):
-        url = item.get('data-url')
-        if url is None: 
+        data_url = item.get('data-url')
+        if data_url is None: 
             continue
 
-        if ignore_duplicates and (url in apartmentList):
+        if ignore_duplicates and (data_url in apartmentList):
             continue
 
         #Take note of the url so we don't accidently create a duplicate entry later
-        apartmentList.append(url)
+        apartmentList.append(data_url)
 
         # get the name for user/debug info
         name = "N/A"
@@ -63,10 +71,10 @@ def scrapeSearchPage(out, page_url, page_num, max_pages, ignore_duplicates, apar
         print ("Collecting data for: %s" % name)
 
         #request the page and parse the data
-        apartmentPage = requests.get(url, headers=headers)
+        apartmentPage = requests.get(data_url, headers=headers)
         apartmentSoup = BeautifulSoup(apartmentPage.content, 'html.parser')
         apartmentSoup.prettify()
-        parsing.parseApartmentPage(apartmentSoup, out, url)
+        parsing.parseApartmentPage(apartmentSoup, out, data_url)
 
     # recurse until the last page
     if page_num < max_pages:
@@ -97,15 +105,16 @@ def main():
     # get the name of the output file
     fname = conf.get('all', 'fname')
 
-
     #Create the output file and start the scraping
     out = OutputFile(fname)
-    #try:
-    scrapeApartments(out, urls, max_pages, ignore_duplicates)
-    #except:
-    #    print("An error has occured!")
-    #finally:
-    out.close()
+    try:
+        scrapeApartments(out, urls, max_pages, ignore_duplicates)
+    except Exception as e:
+        print("An error has occured!")
+        print(e)
+    finally:
+        out.close()
+    print("Finished")
 
 
 if __name__ == '__main__':
