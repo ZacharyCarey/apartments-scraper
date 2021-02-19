@@ -99,6 +99,7 @@ class OutputFile(object):
         'utilities[Sewage]': ["Sewage Incl.", 8.0, {'separateUtilities': True}],
         'utilities[Trash]': ["Trash Incl.", 8.0, {'separateUtilities': True}],
         'utilities[Water]': ["Water Incl.", 8.0, {'separateUtilities': True}],
+        'utilities[Other]': ["Other Util. Incl.", 8.0, {'separateUtilities': True}],
         'parking': ["Parking", 10.0],
         'pets': ["Pets", 7.0],
         'monthly': ["Monthly Fees", 15.0],
