@@ -254,12 +254,12 @@ class OutputFile(object):
                 discount += "Yes"
             else:
                 discount += util
-            discount += "\", "
+            discount += "\", $"
             if self.config['separateUtilities']:
                 discount += self.excel_style('utilities[' + util + ']')
             else:
                 discount += self.excel_style('utilities')
-            discount += ")), \'Price Adjustments\'!B" + str(i + 2) + ", 0)"
+            discount += ")), \'Price Adjustments\'!$B$" + str(i + 2) + ", 0)"
             discounts.append(discount)
         if len(discounts) == 0:
             return int(0)

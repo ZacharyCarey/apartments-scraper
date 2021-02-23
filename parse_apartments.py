@@ -18,8 +18,15 @@ def parseApartmentPage(soup, out, url, config):
     features = scrapeFeatures(soup)
     outdoors = scrapeOutdoors(soup)
 
+    discoveredFloorplans = []
     floorplans = scrapeFloorplanSoups(soup)
     for floorplan in floorplans:
+        floorplanName = scrapeFloorplanName(floorplan) #Separate for easier debugging
+        if floorplanName in discoveredFloorplans:
+            continue
+        else:
+            discoveredFloorplans.append(floorplanName)
+
         row = out.getNewRow()
 
         row.setApartmentName(name)
@@ -35,7 +42,6 @@ def parseApartmentPage(soup, out, url, config):
         addListToRow('features', features, row)
         addListToRow('outdoors', outdoors, row)
 
-        floorplanName = scrapeFloorplanName(floorplan) #Separate for easier debugging
         row.setFloorplanName(floorplanName)
         row.setValue('price', scrapePrice(floorplan, config))
         row.setValue('size', scrapeSize(floorplan))
