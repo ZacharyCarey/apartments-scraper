@@ -84,14 +84,16 @@ def scrapeAddress(soup):
     """Scrapes the full address from the soup."""
     address = []
 
-    obj = soup.find('div', class_='propertyAddress')
+    obj = soup.find('div', class_='propertyAddressContainer')
     if obj is not None:
         obj = obj.find('h2')
         if obj is not None:
+            objIgnore = obj.find('span', class_='neighborhoodAddress')
             obj = obj.find_all('span')
             if obj is not None:
                 for addr in obj:
-                    address.append(simplify(addr.getText()))
+                    if addr != objIgnore:
+                        address.append(simplify(addr.getText()))
 
     return ", ".join(address)
 
@@ -126,22 +128,36 @@ def scrapeUtilities(soup):
                 return utilities
     return []
 
+def filterV2FeesWrapper(soup, desiredHeader):
+    feedObj = soup.find('div', id='profileV2FeesWrapper')
+    if feedObj is not None:
+        for card in feedObj.find_all('div', class_='feesPoliciesCard'):
+            obj = card.find('h4', class_='header-column')
+            if obj is not None:
+                header = simplify(obj.getText())
+                if header == desiredHeader:
+                    return card.find('div', class_='component-body')
+
+
 def scrapeParking(soup):
     parking = []
-    obj = soup.find_all('div', class_='parkingDetails')
+    obj = filterV2FeesWrapper(soup, 'Parking')
     if obj is not None:
+        obj = obj.find_all('li')
         for parkingType in obj:
-            header = parkingType.find('h4')
-            if header is not None:
-                text = simplify(header.getText())
-                if "Covered" in text:
-                    parking.append("Covered")
-                elif ("Surface" in text) or ("Lot" in text):
-                    parking.append("Lot")
-                elif "Garage" in text:
-                    parking.append("Garage")
-                else:
-                    parking.append(text)
+            colObjs = parkingType.find_all('div', class_='component-row')
+            for colObj in colObjs:
+                header = colObj.find('div', class_='column')
+                if header is not None:
+                    text = simplify(header.getText())
+                    if "Covered" in text:
+                        parking.append("Covered")
+                    elif ("Surface" in text) or ("Lot" in text):
+                        parking.append("Lot")
+                    elif "Garage" in text:
+                        parking.append("Garage")
+                    else:
+                        parking.append(text)
         return parking
     return []
 
@@ -232,27 +248,27 @@ def scrapeOutdoors(soup):
 
 def scrapeFloorplanSoups(soup):
     """Returns a list of soups, one per floorplan"""
-    obj = soup.find('table', class_='availabilityTable')
+    obj = soup.find('div', class_='tab-section active')
     if obj is not None:
-        floorplans = obj.find_all('tr', class_='rentalGridRow')
+        floorplans = obj.find_all('div', class_='pricingGridItem')
         if floorplans is not None:
             return floorplans
     return []
 
 def scrapeFloorplanName(floorplan):
     if floorplan is not None:
-        obj = floorplan.find('td', class_='name')
+        obj = floorplan.find('span', class_='modelName')
         if obj is not None:
             return simplify(obj.getText())
     return ''
 
 def scrapePrice(floorplan, config):
     if floorplan is not None:
-        obj = floorplan.find('td', class_='rent')
+        obj = floorplan.find('span', class_='rentLabel')
         if obj is not None:
-            text = simplify(obj.getText())
-            dollar = text.find('$')
-            text = text[dollar + 1:].replace(",", "")
+            text = simplify(obj.getText().replace("\u2013", "-"))
+            text = text.replace('$', "")
+            text = text.replace(",", "")
             rent = 0
             split = text.find('-')
             if split > -1:
@@ -274,64 +290,76 @@ def scrapePrice(floorplan, config):
             return str(rent)
     return '0'
 
+def findSizeInList(soup, names):
+    for obj in soup.find_all('span'):
+        text = obj.getText()
+        if text is None:
+            continue
+        text = simplify(text.replace("\u0189", ".5").replace("\u2013", "-")) #Replace the 1/2 fraction character and fancy hyphen with a normal one
+        for name in names:
+            if name and text.endswith(name):
+                return text
+
 def scrapeSize(floorplan):
     if floorplan is not None:
-        obj = floorplan.find('td', class_='sqft')
+        obj = floorplan.find('span', class_='detailsTextWrapper')
         if obj is not None:
-            text = simplify(obj.getText())
-            text = text.replace(",", "").strip("Sq Ft").strip()
+            text = findSizeInList(obj, ["sq ft"])
+            if not text:
+                return '0'
+            text = text.strip("sq ft").strip().replace(",", "")
             split = text.find('-')
             size = 0
-            if split > -1:
-                size1 = int(text[:split].strip())
-                size2 = int(text[split + 1:].strip())
-                size = (size1 + size2) // 2
-            else:
-                try:
+            try:
+                if split > -1:
+                    size1 = int(text[:split].strip())
+                    size2 = int(text[split + 1:].strip())
+                    size = (size1 + size2) // 2
+                else:
                     size = int(text.strip())
-                except ValueError:
-                    size = 0
+            except ValueError:
+                size = 0
             return str(size)
     return '0'
 
 def scrapeBed(floorplan):
     if floorplan is not None:
-        obj = floorplan.find('td', class_='beds')
+        obj = floorplan.find('span', class_='detailsTextWrapper')
         if obj is not None:
-            obj = obj.find('span')
-            if obj is not None:
-                text = simplify(obj.getText().replace("\u0189", ".5")) #Replace the 1/2 fraction character
-                data = text.split()
-                beds = text
-                if len(data) >= 1:
-                    beds = data[0]
-                if 'studio' in beds.lower():
-                    beds = '1'
-                try:
-                    float(beds)
-                    return beds
-                except ValueError:
-                    return '0'
+            text = findSizeInList(obj, ["bed", "beds", "studio"])
+            if not text:
+                return '0'
+            text = text.lower()
+            data = text.split()
+            beds = text
+            if len(data) >= 1:
+                beds = data[0]
+            if 'studio' in beds.lower():
+                beds = '1'
+            try:
+                float(beds)
+                return beds
+            except ValueError:
+                return '0'
     return '0'
 
 def scrapeBath(floorplan):
     if floorplan is not None:
-        obj = floorplan.find('td', class_='baths')
+        obj = floorplan.find('span', class_='detailsTextWrapper')
         if obj is not None:
-            obj = obj.find('span')
-            if obj is not None:
-                text = obj.getText()
-                text = text.replace(chr(189), ".5") #Replace the 1/2 fraction character
-                text = simplify(text)
-                data = text.split()
-                baths = text
-                if len(data) >= 1:
-                    baths = data[0]
-                if 'studio' in baths.lower():
-                    baths = '1'
-                try:
-                    float(baths)
-                    return baths
-                except ValueError:
-                    return '0'
+            text = findSizeInList(obj, ["bath", "baths", "studio"])
+            if not text:
+                return '0'
+            text = text.lower()
+            data = text.split()
+            baths = text
+            if len(data) >= 1:
+                baths = data[0]
+            if 'studio' in baths.lower():
+                baths = '1'
+            try:
+                float(baths)
+                return baths
+            except ValueError:
+                return '0'
     return '0'
